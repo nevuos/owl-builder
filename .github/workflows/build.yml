@@ -8,25 +8,42 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/openwrt/sdk:ramips-mt7621-23.05.3
+      options: --user root
     steps:
+      - name: Preparar bibliotecas (libpcap, libev, libnl) no SDK
+        run: |
+          cd /builder
+          ./scripts/feeds update base packages
+          ./scripts/feeds install libpcap libev libnl-tiny
+          make defconfig
+          make package/libpcap/compile -j$(nproc)
+          make package/libev/compile -j$(nproc)
+          make package/libnl-tiny/compile -j$(nproc)
+
       - name: Clonar código-fonte do OWL
         run: |
           git clone --recursive https://github.com/seemoo-lab/owl.git /builder/owl
 
-      - name: Compilar estaticamente para MIPS
+      - name: Compilar OWL para MIPS
         run: |
           cd /builder/owl
           mkdir build && cd build
           
-          export STAGING_DIR=/builder/staging_dir
-          export PATH=/builder/staging_dir/toolchain-mipsel_24kc_gcc-12.3.0_musl/bin:$PATH
+          export STAGING_DIR=$(ls -d /builder/staging_dir/target-mipsel_24kc_musl*)
+          export TOOLCHAIN_DIR=$(ls -d /builder/staging_dir/toolchain-mipsel_24kc_gcc*)
+          export PATH="/builder/staging_dir/host/bin:$TOOLCHAIN_DIR/bin:$PATH"
           
           cmake .. \
             -DCMAKE_C_COMPILER=mipsel-openwrt-linux-musl-gcc \
+            -DCMAKE_CXX_COMPILER=mipsel-openwrt-linux-musl-g++ \
+            -DCMAKE_FIND_ROOT_PATH="$STAGING_DIR/usr" \
+            -DCMAKE_INCLUDE_PATH="$STAGING_DIR/usr/include;$STAGING_DIR/usr/include/libnl-tiny" \
+            -DCMAKE_LIBRARY_PATH="$STAGING_DIR/usr/lib" \
+            -DCMAKE_C_FLAGS="-I$STAGING_DIR/usr/include -I$STAGING_DIR/usr/include/libnl-tiny -L$STAGING_DIR/usr/lib" \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=mips
             
-          make -j$(nproc)
+          make owl -j$(nproc)
           mipsel-openwrt-linux-musl-strip owl
 
       - name: Publicar Binario Pronto
