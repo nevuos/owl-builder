@@ -12,11 +12,19 @@ jobs:
     steps:
       - name: Instalar dependencias no SDK
         run: |
+          set -e
           cd /builder
           ./scripts/feeds update base packages
-          ./scripts/feeds install libnl-tiny libpcap libev
+          ./scripts/feeds install libnl libpcap libev
+          {
+            echo "CONFIG_PACKAGE_libnl-core=m"
+            echo "CONFIG_PACKAGE_libnl-genl=m"
+            echo "CONFIG_PACKAGE_libnl-route=m"
+            echo "CONFIG_PACKAGE_libpcap=m"
+            echo "CONFIG_PACKAGE_libev=m"
+          } >> .config
           make defconfig
-          make package/libnl-tiny/compile -j$(nproc)
+          make package/libnl/compile -j$(nproc)
           make package/libpcap/compile -j$(nproc)
           make package/libev/compile -j$(nproc)
 
@@ -28,18 +36,17 @@ jobs:
         run: |
           set -e
           cd /builder
-          export STAGING_DIR_TARGET=$(ls -d /builder/staging_dir/target-mipsel_24kc_musl*)
-          export TOOLCHAIN_DIR=$(ls -d /builder/staging_dir/toolchain-mipsel_24kc_gcc*)
-          export PATH="/builder/staging_dir/host/bin:$TOOLCHAIN_DIR/bin:$PATH"
           export STAGING_DIR=/builder/staging_dir
+          STAGING_TARGET=$(ls -d /builder/staging_dir/target-mipsel_24kc_musl*)
+          TOOLCHAIN_DIR=$(ls -d /builder/staging_dir/toolchain-mipsel_24kc_gcc*)
+          export PATH="/builder/staging_dir/host/bin:$TOOLCHAIN_DIR/bin:$PATH"
 
-          # libnl-tiny substitui libnl-3 e libnl-genl-3 no OpenWrt
-          LIBDIR="$STAGING_DIR_TARGET/usr/lib"
-          INCDIR="$STAGING_DIR_TARGET/usr/include"
-          ls "$LIBDIR" | grep -E "nl|pcap|ev" || true
-          ln -sf libnl-tiny.so "$LIBDIR/libnl-3.so"
-          ln -sf libnl-tiny.so "$LIBDIR/libnl-genl-3.so"
-          ln -sfn libnl-tiny "$INCDIR/libnl3"
+          LIBDIR="$STAGING_TARGET/usr/lib"
+          INCDIR="$STAGING_TARGET/usr/include"
+
+          echo "== Bibliotecas disponíveis =="
+          ls "$LIBDIR" | grep -E "nl|pcap|ev"
+          ls "$INCDIR" | grep -E "nl|pcap|ev"
 
           cd /builder/owl
           rm -rf build && mkdir build && cd build
@@ -49,18 +56,15 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=mips \
             -DCMAKE_C_COMPILER=mipsel-openwrt-linux-musl-gcc \
             -DCMAKE_CXX_COMPILER=mipsel-openwrt-linux-musl-g++ \
-            -DCMAKE_FIND_ROOT_PATH="$STAGING_DIR_TARGET" \
+            -DCMAKE_FIND_ROOT_PATH="$STAGING_TARGET" \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
             -DCMAKE_LIBRARY_PATH="$LIBDIR" \
-            -DCMAKE_INCLUDE_PATH="$INCDIR;$INCDIR/libnl-tiny" \
-            -DCMAKE_C_FLAGS="-I$INCDIR -I$INCDIR/libnl-tiny" \
-            -DCMAKE_CXX_FLAGS="-I$INCDIR -I$INCDIR/libnl-tiny" \
-            -DCMAKE_EXE_LINKER_FLAGS="-L$LIBDIR" \
-            -Dnl_LIBRARY="$LIBDIR/libnl-tiny.so" \
-            -Dnl_genl_LIBRARY="$LIBDIR/libnl-tiny.so" \
-            -Dnl_INCLUDE_DIR="$INCDIR/libnl-tiny"
+            -DCMAKE_INCLUDE_PATH="$INCDIR;$INCDIR/libnl3" \
+            -DCMAKE_C_FLAGS="-I$INCDIR -I$INCDIR/libnl3" \
+            -DCMAKE_CXX_FLAGS="-I$INCDIR -I$INCDIR/libnl3" \
+            -DCMAKE_EXE_LINKER_FLAGS="-L$LIBDIR -Wl,-rpath-link,$LIBDIR"
 
           make owl -j$(nproc)
 
