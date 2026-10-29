@@ -1,0 +1,36 @@
+name: Build OWL for MT7621 (MIPS)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/openwrt/sdk:ramips-mt7621-23.05.3
+    steps:
+      - name: Clonar código-fonte do OWL
+        run: |
+          git clone --recursive https://github.com/seemoo-lab/owl.git /builder/owl
+
+      - name: Compilar estaticamente para MIPS
+        run: |
+          cd /builder/owl
+          mkdir build && cd build
+          
+          export STAGING_DIR=/builder/staging_dir
+          export PATH=/builder/staging_dir/toolchain-mipsel_24kc_gcc-12.3.0_musl/bin:$PATH
+          
+          cmake .. \
+            -DCMAKE_C_COMPILER=mipsel-openwrt-linux-musl-gcc \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=mips
+            
+          make -j$(nproc)
+          mipsel-openwrt-linux-musl-strip owl
+
+      - name: Publicar Binario Pronto
+        uses: actions/upload-artifact@v4
+        with:
+          name: owl-mt7621-mips
+          path: /builder/owl/build/owl
