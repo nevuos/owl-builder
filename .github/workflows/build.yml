@@ -10,15 +10,15 @@ jobs:
       image: ghcr.io/openwrt/sdk:ramips-mt7621-23.05.3
       options: --user root
     steps:
-      - name: Preparar bibliotecas (libpcap, libev, libnl) no SDK
+      - name: Instalar dependencias no SDK
         run: |
           cd /builder
           ./scripts/feeds update base packages
-          ./scripts/feeds install libpcap libev libnl-tiny
+          ./scripts/feeds install libnl-tiny libpcap libev
           make defconfig
+          make package/libnl-tiny/compile -j$(nproc)
           make package/libpcap/compile -j$(nproc)
           make package/libev/compile -j$(nproc)
-          make package/libnl-tiny/compile -j$(nproc)
 
       - name: Clonar código-fonte do OWL
         run: |
@@ -37,9 +37,6 @@ jobs:
             -DCMAKE_C_COMPILER=mipsel-openwrt-linux-musl-gcc \
             -DCMAKE_CXX_COMPILER=mipsel-openwrt-linux-musl-g++ \
             -DCMAKE_FIND_ROOT_PATH="$STAGING_DIR/usr" \
-            -DCMAKE_INCLUDE_PATH="$STAGING_DIR/usr/include;$STAGING_DIR/usr/include/libnl-tiny" \
-            -DCMAKE_LIBRARY_PATH="$STAGING_DIR/usr/lib" \
-            -DCMAKE_C_FLAGS="-I$STAGING_DIR/usr/include -I$STAGING_DIR/usr/include/libnl-tiny -L$STAGING_DIR/usr/lib" \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=mips
             
