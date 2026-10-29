@@ -62,8 +62,8 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
             -DCMAKE_LIBRARY_PATH="$LIBDIR" \
             -DCMAKE_INCLUDE_PATH="$INCDIR;$INCDIR/libnl3" \
-            -DCMAKE_C_FLAGS="-I$INCDIR -I$INCDIR/libnl3" \
-            -DCMAKE_CXX_FLAGS="-I$INCDIR -I$INCDIR/libnl3" \
+            -DCMAKE_C_FLAGS="-I$INCDIR -I$INCDIR/libnl3 -D__UAPI_DEF_ETHHDR=0" \
+            -DCMAKE_CXX_FLAGS="-I$INCDIR -I$INCDIR/libnl3 -D__UAPI_DEF_ETHHDR=0" \
             -DCMAKE_EXE_LINKER_FLAGS="-L$LIBDIR -Wl,-rpath-link,$LIBDIR"
 
           make owl -j$(nproc)
